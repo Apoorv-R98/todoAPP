@@ -1,4 +1,11 @@
-const STORAGE_KEY = "todoapp:todos";
+import {
+  STORAGE_KEY,
+  parseStoredTodos,
+  serializeTodos,
+  addTodoAtFront,
+  setTodoCompleted,
+  deleteTodoById,
+} from "./todo-logic.js";
 
 const listEl = document.getElementById("list");
 const formEl = document.getElementById("add-form");
@@ -11,18 +18,11 @@ function showError(message) {
 }
 
 function readTodos() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
+  return parseStoredTodos(localStorage.getItem(STORAGE_KEY));
 }
 
 function writeTodos(todos) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(todos));
+  localStorage.setItem(STORAGE_KEY, serializeTodos(todos));
 }
 
 function mutate(updater) {
@@ -66,8 +66,7 @@ function renderItem(todo) {
   checkbox.setAttribute("aria-label", "Completed");
   checkbox.addEventListener("change", () => {
     mutate((todos) => {
-      const t = todos.find((x) => x.id === todo.id);
-      if (t) t.completed = checkbox.checked;
+      setTodoCompleted(todos, todo.id, checkbox.checked);
     });
   });
 
@@ -84,8 +83,7 @@ function renderItem(todo) {
   del.textContent = "Delete";
   del.addEventListener("click", () => {
     mutate((todos) => {
-      const i = todos.findIndex((x) => x.id === todo.id);
-      if (i !== -1) todos.splice(i, 1);
+      deleteTodoById(todos, todo.id);
     });
   });
 
@@ -101,10 +99,9 @@ formEl.addEventListener("submit", (e) => {
   const text = inputEl.value.trim();
   if (!text) return;
   mutate((todos) => {
-    todos.unshift({
+    addTodoAtFront(todos, {
       id: crypto.randomUUID(),
       text,
-      completed: false,
       createdAt: new Date().toISOString(),
     });
   });
