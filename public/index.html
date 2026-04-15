@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Todos</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="app">
+      <header class="header">
+        <h1>Todos</h1>
+        <p class="sub">Simple list backed by a small API</p>
+      </header>
+      <form class="add-form" id="add-form" autocomplete="off">
+        <input
+          type="text"
+          id="new-todo"
+          name="text"
+          placeholder="What needs doing?"
+          maxlength="500"
+          required
+        />
+        <button type="submit">Add</button>
+      </form>
+      <p class="err" id="err" hidden></p>
+      <ul class="list" id="list" aria-live="polite"></ul>
+    </main>
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>
