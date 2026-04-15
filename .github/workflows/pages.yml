@@ -1,7 +1,12 @@
 # Deploy the static site in /public to GitHub Pages.
 #
-# One-time: Repo → Settings → Pages → Build and deployment → Source: GitHub Actions.
-# Site URL: Settings → Pages (after first successful run), or the job summary link.
+# First time only (required by GitHub before this workflow can succeed):
+#   Repo → Settings → Pages → Build and deployment → Source: "GitHub Actions" → Save.
+#   If that is still "Deploy from a branch", the Pages API returns 404 and deploy fails.
+# Site URL: Settings → Pages after the first successful run.
+#
+# Optional: to auto-enable Pages from CI you need a PAT with repo scope as a secret and
+# actions/configure-pages with enablement: true (GITHUB_TOKEN cannot enable Pages).
 
 name: Deploy GitHub Pages
 
@@ -29,13 +34,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Configure Pages
-        uses: actions/configure-pages@v5
-
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: public
+          # Include .nojekyll (dotfiles are excluded by default in this action).
+          include-hidden-files: true
 
       - name: Deploy to GitHub Pages
         id: deployment

@@ -1,3 +1,5 @@
+const STORAGE_KEY = "todoapp:todos";
+
 const listEl = document.getElementById("list");
 const formEl = document.getElementById("add-form");
 const inputEl = document.getElementById("new-todo");
@@ -8,18 +10,49 @@ function showError(message) {
   errEl.hidden = !message;
 }
 
-async function api(path, options = {}) {
-  const res = await fetch(path, {
-    headers: { "Content-Type": "application/json", ...options.headers },
-    ...options,
-  });
-  if (res.status === 204) return null;
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    const msg = data.error || res.statusText || "Request failed";
-    throw new Error(msg);
+function readTodos() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
   }
-  return data;
+}
+
+function writeTodos(todos) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(todos));
+}
+
+function mutate(updater) {
+  showError("");
+  try {
+    const todos = readTodos();
+    updater(todos);
+    writeTodos(todos);
+    renderList(todos);
+  } catch (e) {
+    if (e?.name === "QuotaExceededError") {
+      showError("Browser storage is full; free some space or remove old todos.");
+    } else {
+      showError(e?.message || "Something went wrong.");
+    }
+  }
+}
+
+function renderList(todos) {
+  listEl.innerHTML = "";
+  if (!todos.length) {
+    const p = document.createElement("p");
+    p.className = "empty";
+    p.textContent = "No todos yet. Add one above.";
+    listEl.appendChild(p);
+    return;
+  }
+  for (const todo of todos) {
+    listEl.appendChild(renderItem(todo));
+  }
 }
 
 function renderItem(todo) {
@@ -31,17 +64,11 @@ function renderItem(todo) {
   checkbox.type = "checkbox";
   checkbox.checked = todo.completed;
   checkbox.setAttribute("aria-label", "Completed");
-  checkbox.addEventListener("change", async () => {
-    try {
-      const updated = await api(`/api/todos/${todo.id}`, {
-        method: "PATCH",
-        body: JSON.stringify({ completed: checkbox.checked }),
-      });
-      li.classList.toggle("completed", updated.completed);
-    } catch (e) {
-      checkbox.checked = todo.completed;
-      showError(e.message);
-    }
+  checkbox.addEventListener("change", () => {
+    mutate((todos) => {
+      const t = todos.find((x) => x.id === todo.id);
+      if (t) t.completed = checkbox.checked;
+    });
   });
 
   const span = document.createElement("span");
@@ -55,16 +82,11 @@ function renderItem(todo) {
   del.type = "button";
   del.className = "delete";
   del.textContent = "Delete";
-  del.addEventListener("click", async () => {
-    try {
-      await api(`/api/todos/${todo.id}`, { method: "DELETE" });
-      li.remove();
-      if (!listEl.querySelector(".item")) {
-        renderEmpty();
-      }
-    } catch (e) {
-      showError(e.message);
-    }
+  del.addEventListener("click", () => {
+    mutate((todos) => {
+      const i = todos.findIndex((x) => x.id === todo.id);
+      if (i !== -1) todos.splice(i, 1);
+    });
   });
 
   actions.appendChild(del);
@@ -74,48 +96,19 @@ function renderItem(todo) {
   return li;
 }
 
-function renderEmpty() {
-  listEl.innerHTML = "";
-  const p = document.createElement("p");
-  p.className = "empty";
-  p.textContent = "No todos yet. Add one above.";
-  listEl.appendChild(p);
-}
-
-async function loadTodos() {
-  showError("");
-  try {
-    const todos = await api("/api/todos");
-    listEl.innerHTML = "";
-    if (!todos.length) {
-      renderEmpty();
-      return;
-    }
-    for (const todo of todos) {
-      listEl.appendChild(renderItem(todo));
-    }
-  } catch (e) {
-    showError(e.message);
-  }
-}
-
-formEl.addEventListener("submit", async (e) => {
+formEl.addEventListener("submit", (e) => {
   e.preventDefault();
   const text = inputEl.value.trim();
   if (!text) return;
-  showError("");
-  try {
-    const todo = await api("/api/todos", {
-      method: "POST",
-      body: JSON.stringify({ text }),
+  mutate((todos) => {
+    todos.unshift({
+      id: crypto.randomUUID(),
+      text,
+      completed: false,
+      createdAt: new Date().toISOString(),
     });
-    inputEl.value = "";
-    const empty = listEl.querySelector(".empty");
-    if (empty) empty.remove();
-    listEl.prepend(renderItem(todo));
-  } catch (err) {
-    showError(err.message);
-  }
+  });
+  inputEl.value = "";
 });
 
-loadTodos();
+renderList(readTodos());
